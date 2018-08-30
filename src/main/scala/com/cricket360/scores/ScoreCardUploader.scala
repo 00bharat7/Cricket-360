@@ -3,8 +3,10 @@ import java.io.File
 
 import com.cricket360.connector.MongoConnector
 import com.cricket360.players.Player
-import org.apache.poi.ss.usermodel.WorkbookFactory
+import org.apache.poi.ss.usermodel.{Row, WorkbookFactory}
 import com.mongodb.casbah.Imports._
+import com.mongodb.casbah.commons
+import com.mongodb.casbah.commons.Imports
 import net.liftweb.json._
 import net.liftweb.json.Serialization.write
 
@@ -28,19 +30,34 @@ object ScoreCardUploader {
 
     val f = new File(fileLocation)
     val workbook = WorkbookFactory.create(f)
-    val sheet = workbook.getSheetAt(0)
+    val scoreSheet = workbook.getSheetAt(0)
+    val resultSheet = workbook.getSheetAt(1)
 
-    sheet.drop(1).foreach(row => {
+    val resultRow = resultSheet.drop(1).head
+
+    val oppTeam = resultRow.getCell(0).getStringCellValue
+    val season = resultRow.getCell(1).getStringCellValue
+    val matchType = resultRow.getCell(2).getStringCellValue
+
+   val resultObject =  DBObject(
+      "opp_team" -> oppTeam,
+      "season" -> season,
+      "type" -> matchType,
+      "result" -> resultRow.getCell(3).getStringCellValue,
+      "details" -> resultRow.getCell(4).getStringCellValue
+    )
+
+
+    val scoresMap = scoreSheet.drop(1).map(row => {
       val playerName = row.getCell(0).getStringCellValue
 
-      try {
         val player = getMongoPlayerData(playerName)
 
         if (player.isDefined) {
           val opp_team = row.getCell(1).getStringCellValue
           val season = row.getCell(11).getStringCellValue
 
-          val scoresMap = DBObject(
+          DBObject(
             "player" -> player,
             "opp_team" -> opp_team,
             "runs_scored" -> row.getCell(2).getNumericCellValue.toLong,
@@ -55,16 +72,23 @@ object ScoreCardUploader {
             "season" -> season
           )
 
-          MongoConnector.scores.save(scoresMap)
+        } else DBObject()
+    }).toList
 
-          println(s"Successfully uploaded Score of ${playerName} for Renegades vs ${opp_team} $season")
+    try {
+      //push to mongo scores table ->
 
-          //push to mongo scores table
-        }
-      }catch{
-        case e: Exception => println(new Exception(e.getMessage))
-      }
-    })
+      val scoreObject = DBObject(
+        "gameId" -> s"${oppTeam}_${season}_${matchType}",
+        "result" -> resultObject,
+        "scoreCard" -> scoresMap
+      )
+
+      MongoConnector.scores.save(scoreObject)
+      println(s"Successfully uploaded Score for Renegades")
+    }catch{
+      case e: Exception => println(new Exception(e.getMessage))
+    }
 
   }
 
