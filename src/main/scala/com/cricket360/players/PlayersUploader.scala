@@ -17,7 +17,8 @@ import scala.util.{Failure, Success}
 object PlayersUploader {
 
   def main(args: Array[String]): Unit = {
-    uploadPlayerDetails("C:\\Users\\bhara\\Downloads\\Cricket-360-files\\Players.xlsx")
+    val path = System.getProperty("players.location")
+    uploadPlayerDetails(path)
   }
 
   def uploadPlayerDetails(fileLocation: String) = {

@@ -2,17 +2,14 @@ package com.cricket360.scores
 import java.io.File
 
 import com.cricket360.connector.MongoConnector
-import com.cricket360.players.Player
-import org.apache.poi.ss.usermodel.{Row, WorkbookFactory}
+import com.cricket360.players.PlayerHelper
+import com.cricket360.stats.{Stats, StatsHelper}
+import org.apache.poi.ss.usermodel.WorkbookFactory
 import com.mongodb.casbah.Imports._
-import com.mongodb.casbah.commons
-import com.mongodb.casbah.commons.Imports
 import net.liftweb.json._
-import net.liftweb.json.Serialization.write
+import org.joda.time.DateTime
 
 import collection.JavaConversions._
-import scala.util.{Failure, Success}
-import scala.math._
 
 
 /**
@@ -22,7 +19,10 @@ object ScoreCardUploader {
 
   def main(args: Array[String]): Unit = {
     println("uploading score card")
-    uploadScorecard("C:\\Users\\bhara\\Downloads\\Cricket-360-files\\ScoreCard-Willowwarriors_1.xls")
+
+    val path = System.getProperty("scorecard.location")
+
+    uploadScorecard(path)
 
   }
 
@@ -57,22 +57,45 @@ object ScoreCardUploader {
 
 
     val scoresMap = scoreSheet.drop(1).map(row => {
+
       val playerName = row.getCell(0).getStringCellValue
-      val player = getMongoPlayerData(playerName)
       val runsScored = row.getCell(1).getNumericCellValue.toLong
       val ballsPlayed =row.getCell(2).getNumericCellValue.toLong
-      val SR=(runsScored/ballsPlayed)*100
       val runsGiven=row.getCell(6).getNumericCellValue.toLong
       val oversBowled =row.getCell(4).getNumericCellValue.toLong
-
       val dismissalType = row.getCell(3).getStringCellValue
 
-      val isNotOut = if(dismissalType.equalsIgnoreCase("notout")) false else true
+      val isNotOut = if(dismissalType.equalsIgnoreCase("notout")) true else false
       val IsDuck = if(runsScored == 0) true else false
-
       val economyRate =if(oversBowled!=0 && runsGiven!=0) runsGiven.toDouble/oversBowled else 0
+      val SR=(runsScored/ballsPlayed)*100
+      val playerId = ""
 
-        val batting = DBObject(
+      val player = PlayerHelper.getMongoPlayerData(playerName)
+
+      val statsByPlayer: Stats = StatsHelper.getMongoStatsData(playerId)
+
+      // Bat stats
+      val totalScore = if(statsByPlayer!=null) statsByPlayer.batting_stats.runs + runsScored else runsScored
+      val totalBalls = if(statsByPlayer!=null) statsByPlayer.batting_stats.balls + runsScored else ballsPlayed
+      val totalMatches = if(statsByPlayer!=null) statsByPlayer.batting_stats.matches_played + 1 else 1
+
+      val totalInnings =
+        if(statsByPlayer!=null){
+          if(ballsPlayed > 0) statsByPlayer.batting_stats.innings_played + 1 else statsByPlayer.batting_stats.innings_played
+      }else if(ballsPlayed > 0) 1 else 0
+
+      val totalNotOuts =
+        if(statsByPlayer!=null){
+          if(isNotOut) statsByPlayer.batting_stats.not_outs + 1 else statsByPlayer.batting_stats.not_outs
+        }else if(isNotOut) 1 else 0
+
+      val highestScore = if(statsByPlayer.batting_stats.highest_score < runsScored) runsScored else statsByPlayer.batting_stats.highest_score
+
+
+
+
+      val batting = DBObject(
           "runs_scored" -> runsScored,
           "balls_played" -> ballsPlayed,
           "dismissal_type" -> dismissalType,
@@ -104,7 +127,6 @@ object ScoreCardUploader {
             "bowling"->bowling,
             "fielding"->fielding
           )
-
         } else DBObject()
     }).toList
 
@@ -114,32 +136,14 @@ object ScoreCardUploader {
       val scoreObject = DBObject(
         "gameId" -> s"${homeTeam}_${oppTeam}_${season}_${matchType}",
         "result" -> resultObject,
-        "scoreCard" -> scoresMap
+        "scoreCard" -> scoresMap,
+        "UpdatedAt" -> DateTime.now.toDate
       )
 
       MongoConnector.scores.save(scoreObject)
-      println(s"Successfully uploaded Score for Renegades")
+      println(s"Successfully uploaded Score for $homeTeam vs $oppTeam")
     }catch{
       case e: Exception => println(new Exception(e.getMessage))
     }
   }
-
-
-
-
-
-  def getMongoPlayerData(playerName: String) = {
-    val player = MongoConnector.players.findOne(MongoDBObject("alias" -> MongoDBObject("$regex" -> playerName.toLowerCase)))
-
-    player.map(i => DBObject(
-      "player_id" -> i.getAsOrElse[String]("player_id", ""),
-      "first_name" -> i.getAsOrElse[String]("first_name", ""),
-      "last_name" -> i.getAsOrElse[String]("last_name", ""),
-      "email" -> i.getAsOrElse[String]("email", ""),
-      "phone" -> i.getAsOrElse[Long]("phone", 0),
-      "style" -> i.getAsOrElse[String]("style", ""),
-      "alias" ->i.getAsOrElse[String]("alias", "")
-    ))
-  }
-
 }

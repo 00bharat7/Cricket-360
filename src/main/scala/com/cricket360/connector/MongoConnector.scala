@@ -12,8 +12,10 @@ object MongoConnector {
   private val DATABASE = "cricket360"
   private val COLLECTION1 = "scores"
   private val COLLECTION2 = "players"
+  private val COLLECTION3 = "stats"
   val connection = MongoConnection(SERVER)
   val scores = connection(DATABASE)(COLLECTION1)
   val players= connection(DATABASE)(COLLECTION2)
+  val stats= connection(DATABASE)(COLLECTION3)
 
 }
