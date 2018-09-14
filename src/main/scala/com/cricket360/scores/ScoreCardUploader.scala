@@ -47,8 +47,8 @@ object ScoreCardUploader {
      "home_team"->homeTeam,
       "opp_team" -> oppTeam,
       "season" -> season,
-      "type" -> matchType,
-     "match date"->resultRow.getCell(4).getDateCellValue,
+      "matchType" -> matchType,
+     "match_date"->resultRow.getCell(4).getDateCellValue,
      "location"->resultRow.getCell(5).getStringCellValue,
       "toss_result"->toss_result,
       "toss_decision"->toss_decision,
@@ -80,7 +80,8 @@ object ScoreCardUploader {
         true
       } else false
       val economyRate = if (oversBowled != 0 && runsGiven != 0) runsGiven.toDouble / oversBowled else 0
-      val SR = (runsScored / ballsPlayed) * 100
+      val srBat = (runsScored.toFloat / ballsPlayed) * 100
+      val SR = BigDecimal(srBat).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
       val sixes = row.getCell(10).getNumericCellValue.toLong
       val fours = row.getCell(11).getNumericCellValue.toLong
 
@@ -137,7 +138,8 @@ object ScoreCardUploader {
       val highestScore = if (statsByPlayer != null) { if (statsByPlayer.batting_stats.highest_score < runsScored) runsScored
       else statsByPlayer.batting_stats.highest_score } else runsScored
 
-      val totalSRBatting = if(totalBalls!= 0) (totalScore / totalBalls) * 100 else 0
+      val totalSrBat = if(totalBalls!= 0) (totalScore.toFloat / totalBalls) * 100 else 0
+      val totalSrBatting = BigDecimal(totalSrBat).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
       val totalOuts = (totalInningsBat - totalNotOuts)
       val battingAverage = if((totalOuts)!=0)totalScore / totalOuts else 0
 
@@ -203,13 +205,14 @@ object ScoreCardUploader {
 
       val totalWicketsTaken = if (statsByPlayer != null) statsByPlayer.bowling_stats.wickets + wickets_Taken else wickets_Taken
 
-      //check
+
       val bowlingAverage = if(totalWicketsTaken!=0) totalRunsGiven / totalWicketsTaken else 0
 
       val totalEconomyRate = if (totalInningsBowled != 0 && totalRunsGiven != 0) totalRunsGiven.toDouble / totalOversBowled else 0
 
-      //check
-      val totalSRBowling = if(totalWicketsTaken!=0) (totalRunsGiven / totalWicketsTaken) * 100 else 0
+
+      val totalSrBowl = if(totalWicketsTaken!=0) (totalRunsGiven / totalWicketsTaken) * 100 else 0
+      val totalSrBowling = BigDecimal(totalSrBowl).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
 
       val isThreeWickets = if (wickets_Taken == 3) {
         bowlCredits = bowlCredits + 1
@@ -283,7 +286,7 @@ object ScoreCardUploader {
         "runs" -> totalScore,
         "balls" -> totalBalls,
         "average" -> battingAverage,
-        "strike_rate" -> totalSRBatting,
+        "strike_rate" -> totalSrBatting,
         "highest_score" -> highestScore,
         "hundreds" -> totalHundreds,
         "fifties" -> totalFifties,
@@ -302,7 +305,7 @@ object ScoreCardUploader {
         "wickets" -> totalWicketsTaken,
         "average" -> bowlingAverage,
         "economy" -> totalEconomyRate,
-        "strike_rate" -> totalSRBowling,
+        "strike_rate" -> totalSrBowling,
         "three_wickets" -> totalThreeWickets,
         "four_wickets" -> totalFourWickets,
         "five_wickets" -> totalFiveWickets,
@@ -334,7 +337,7 @@ object ScoreCardUploader {
           "runs_scored" -> runsScored,
           "balls_played" -> ballsPlayed,
           "dismissal_type" -> dismissalType,
-          "SR%" ->SR,
+          "SR" ->SR,
           "sixes" ->sixes,
           "fours" ->fours,
          "IsNotOut"-> isNotOut,
