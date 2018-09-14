@@ -70,5 +70,3 @@ object PlayersUploader {
 
 
 }
-
-case class Player(playerId: String, firstName: String, lastName: String, email: String, phone: String, style: String, alias: String)

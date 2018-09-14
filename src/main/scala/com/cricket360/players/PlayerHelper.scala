@@ -16,3 +16,5 @@ object PlayerHelper {
   }
 
 }
+
+case class Player(player_id: String, first_name:String, last_name:String, email:String, phone:Long,style:String,alias:String)
