@@ -1,6 +1,6 @@
 package com.cricket360.players
 
-import java.io.File
+import java.io.{File, FileNotFoundException}
 
 import com.cricket360.connector.MongoConnector
 
@@ -22,13 +22,13 @@ object PlayersUploader {
   }
 
   def uploadPlayerDetails(fileLocation: String) = {
-
+    try{
     val f = new File(fileLocation)
     val formatter = new DataFormatter
     val workbook = WorkbookFactory.create(f)
     val sheet = workbook.getSheetAt(0)
 
-    try{
+
     sheet.drop(1).foreach(row => {
 
       val firstName = row.getCell(0).getStringCellValue
@@ -50,16 +50,17 @@ object PlayersUploader {
       }
 
       val playersMap = DBObject(
-        "player_id" -> playerId,
-        "first_name" -> firstName,
-        "last_name" -> lastName,
+        "playerId" -> playerId,
+        "firstName" -> firstName,
+        "lastName" -> lastName,
         "email" -> email,
         "phone" -> phone.toLong,
         "style" -> row.getCell(4).getStringCellValue,
         "alias" -> row.getCell(5).getStringCellValue
       )
 
-      MongoConnector.players.save(playersMap)
+        MongoConnector.players.save(playersMap)
+
 
       println(s"Successfully uploaded player details of ${playerId}")
     })

@@ -2,7 +2,7 @@ package com.cricket360.scores
 import java.io.File
 
 import com.cricket360.connector.MongoConnector
-import com.cricket360.players.{Player, PlayerHelper}
+import com.cricket360.players.PlayerHelper
 import com.cricket360.stats.{Stats, StatsHelper}
 import org.apache.poi.ss.usermodel.WorkbookFactory
 import com.mongodb.casbah.Imports._
@@ -39,21 +39,21 @@ object ScoreCardUploader {
     val oppTeam = resultRow.getCell(1).getStringCellValue
     val season = resultRow.getCell(2).getStringCellValue
     val matchType = resultRow.getCell(3).getStringCellValue
-    val toss_result =resultRow.getCell(6).getStringCellValue
-    val toss_decision =resultRow.getCell(7).getStringCellValue
+    val tossResult =resultRow.getCell(6).getStringCellValue
+    val tossDecision =resultRow.getCell(7).getStringCellValue
     val winner = resultRow.getCell(8).getStringCellValue
 
    val resultObject =  DBObject(
-     "home_team"->homeTeam,
-      "opp_team" -> oppTeam,
+      "homeTeam"->homeTeam,
+      "oppTeam" -> oppTeam,
       "season" -> season,
       "matchType" -> matchType,
-     "match_date"->resultRow.getCell(4).getDateCellValue,
-     "location"->resultRow.getCell(5).getStringCellValue,
-      "toss_result"->toss_result,
-      "toss_decision"->toss_decision,
+      "matchDate"->resultRow.getCell(4).getDateCellValue,
+      "location"->resultRow.getCell(5).getStringCellValue,
+      "tossResult"->tossResult,
+      "tossDecision"->tossDecision,
       "winner" -> winner,
-      "details" -> resultRow.getCell(9).getStringCellValue,
+      "details" -> resultRow.getCell(9).getStringCellValue
     )
 
 
@@ -63,80 +63,73 @@ object ScoreCardUploader {
       var fieldCredits = 0
 
       val playerName = row.getCell(0).getStringCellValue
-      val runsScored = row.getCell(1).getNumericCellValue.toLong
-      val ballsPlayed = row.getCell(2).getNumericCellValue.toLong
-      val runsGiven = row.getCell(6).getNumericCellValue.toLong
-      val oversBowled = row.getCell(4).getNumericCellValue.toLong
+      val runsScored = row.getCell(1).getNumericCellValue.toInt
+      val ballsPlayed =row.getCell(2).getNumericCellValue.toInt
+      val runsGiven=row.getCell(6).getNumericCellValue.toInt
+      val oversBowled =row.getCell(4).getNumericCellValue.toInt
       val dismissalType = row.getCell(3).getStringCellValue
-      val catches_dropped = row.getCell(8).getNumericCellValue.toInt
 
 
       val isNotOut = if (dismissalType.equalsIgnoreCase("notout")) {
         batCredits = batCredits + 1
         true
       } else false
-      val IsDuck = if (runsScored == 0) {
+      val isDuck = if (runsScored == 0) {
         batCredits = batCredits - 1
         true
       } else false
+
       val economyRate = if (oversBowled != 0 && runsGiven != 0) runsGiven.toDouble / oversBowled else 0
       val srBat = (runsScored.toFloat / ballsPlayed) * 100
       val SR = BigDecimal(srBat).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
       val sixes = row.getCell(10).getNumericCellValue.toLong
       val fours = row.getCell(11).getNumericCellValue.toLong
 
-      val wickets_Taken = row.getCell(5).getNumericCellValue.toInt
-      bowlCredits = bowlCredits + wickets_Taken
+      val wicketsTaken = row.getCell(5).getNumericCellValue.toInt
+      bowlCredits = bowlCredits + wicketsTaken
 
-      val No_Balls = row.getCell(12).getNumericCellValue.toLong
-      val wide_Balls = row.getCell(13).getNumericCellValue.toLong
+      val noBalls = row.getCell(12).getNumericCellValue.toLong
+      val wideBalls = row.getCell(13).getNumericCellValue.toLong
 
-      val Maiden_overs = row.getCell(14).getNumericCellValue.toInt
-      bowlCredits = bowlCredits + Maiden_overs
+      val maidenOvers = row.getCell(14).getNumericCellValue.toInt
+      bowlCredits = bowlCredits + maidenOvers
 
-      val catches_taken = row.getCell(7).getNumericCellValue.toInt
-      fieldCredits = fieldCredits + catches_taken
+      val catchesTaken = row.getCell(7).getNumericCellValue.toInt
+      fieldCredits = fieldCredits + catchesTaken
 
-      "catches_dropped" -> catches_dropped
-      fieldCredits = fieldCredits - catches_dropped
 
-      val run_outs = row.getCell(9).getNumericCellValue.toInt
-      fieldCredits = fieldCredits + run_outs
+      val catchesDropped = row.getCell(8).getNumericCellValue.toInt
+      fieldCredits = fieldCredits - catchesDropped
+
+      val runOuts = row.getCell(9).getNumericCellValue.toInt
+      fieldCredits = fieldCredits + runOuts
 
       val player = PlayerHelper.getMongoPlayerData(playerName)
 
-      val playerId = player.map(i => i.getAsOrElse("player_id", ""))
+      val playerId = player.map(i => i.getAsOrElse("playerId", ""))
 
       val statsByPlayerOptional = StatsHelper.getMongoStatsData(playerId.getOrElse(""))
 
 
      val statsByPlayer: Stats =  if(statsByPlayerOptional.isDefined) statsByPlayerOptional.get else null
 
-    /*  val totalScore = if(statsByPlayer.isDefined){
-        val totalRuns = statsByPlayer.get.getAs[Int]("batting_stats.runs").getOrElse(0)
-        totalRuns + runsScored
-      }else{
-        runsScored
-      }*/
-
-
       // Bat stats
-      val totalScore = if (statsByPlayer != null) statsByPlayer.batting_stats.runs + runsScored else runsScored
-      val totalBalls = if (statsByPlayer != null) statsByPlayer.batting_stats.balls + ballsPlayed else ballsPlayed
-      val totalMatches = if (statsByPlayer != null) statsByPlayer.batting_stats.matches_played + 1 else 1
+      val totalScore = if (statsByPlayer != null) statsByPlayer.battingStats.runs + runsScored else runsScored
+      val totalBalls = if (statsByPlayer != null) statsByPlayer.battingStats.balls + ballsPlayed else ballsPlayed
+      val totalMatches = if (statsByPlayer != null) statsByPlayer.battingStats.matchesPlayed + 1 else 1
 
       val totalInningsBat =
         if (statsByPlayer != null) {
-          if (ballsPlayed > 0) statsByPlayer.batting_stats.innings_played + 1 else statsByPlayer.batting_stats.innings_played
+          if (ballsPlayed > 0) statsByPlayer.battingStats.inningsPlayed + 1 else statsByPlayer.battingStats.inningsPlayed
         } else if (ballsPlayed > 0) 1 else 0
 
       val totalNotOuts =
         if (statsByPlayer != null) {
-          if (isNotOut) statsByPlayer.batting_stats.not_outs + 1 else statsByPlayer.batting_stats.not_outs
+          if (isNotOut) statsByPlayer.battingStats.notOuts + 1 else statsByPlayer.battingStats.notOuts
         } else if (isNotOut) 1 else 0
 
-      val highestScore = if (statsByPlayer != null) { if (statsByPlayer.batting_stats.highest_score < runsScored) runsScored
-      else statsByPlayer.batting_stats.highest_score } else runsScored
+      val highestScore = if (statsByPlayer != null) { if (statsByPlayer.battingStats.highestScore < runsScored) runsScored
+      else statsByPlayer.battingStats.highestScore } else runsScored
 
       val totalSrBat = if(totalBalls!= 0) (totalScore.toFloat / totalBalls) * 100 else 0
       val totalSrBatting = BigDecimal(totalSrBat).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
@@ -151,10 +144,10 @@ object ScoreCardUploader {
       val totalHundreds =
         if (statsByPlayer != null) {
           if (isHundred)
-            statsByPlayer.batting_stats.hundreds + 1
+            statsByPlayer.battingStats.hundreds + 1
 
           else
-            statsByPlayer.batting_stats.hundreds
+            statsByPlayer.battingStats.hundreds
         } else if (isHundred) 1 else 0
 
       val isFifty = if (runsScored >= 50 && runsScored < 100) {
@@ -165,9 +158,9 @@ object ScoreCardUploader {
       val totalFifties =
         if (statsByPlayer != null) {
           if (isFifty)
-            statsByPlayer.batting_stats.fifties + 1
+            statsByPlayer.battingStats.fifties + 1
           else
-            statsByPlayer.batting_stats.fifties
+            statsByPlayer.battingStats.fifties
         } else if (isFifty) 1 else 0
 
 
@@ -179,31 +172,31 @@ object ScoreCardUploader {
       val totalThirties =
         if (statsByPlayer != null) {
           if (isThirty)
-            statsByPlayer.batting_stats.thirties + 1
+            statsByPlayer.battingStats.thirties + 1
           else
-            statsByPlayer.batting_stats.thirties
+            statsByPlayer.battingStats.thirties
         } else if (isThirty) 1 else 0
 
 
       val totalDucks = if (statsByPlayer != null) {
-        if (IsDuck) statsByPlayer.batting_stats.duck_outs + 1 else statsByPlayer.batting_stats.duck_outs
-      } else if (IsDuck) 1 else 0
+        if (isDuck) statsByPlayer.battingStats.duckOuts + 1 else statsByPlayer.battingStats.duckOuts
+      } else if (isDuck) 1 else 0
 
-      val totalFours = if (statsByPlayer != null) statsByPlayer.batting_stats.fours + fours else fours
+      val totalFours = if (statsByPlayer != null) statsByPlayer.battingStats.fours + fours else fours
 
-      val totalSixes = if (statsByPlayer != null) statsByPlayer.batting_stats.sixes + sixes else sixes
+      val totalSixes = if (statsByPlayer != null) statsByPlayer.battingStats.sixes + sixes else sixes
 
       //Bowling Stats
 
       val totalInningsBowled = if (statsByPlayer != null) {
-        if (oversBowled > 0) statsByPlayer.bowling_stats.innings_played + 1 else statsByPlayer.bowling_stats.innings_played
+        if (oversBowled > 0) statsByPlayer.bowlingStats.inningsPlayed + 1 else statsByPlayer.bowlingStats.inningsPlayed
       } else if (oversBowled > 0) 1 else 0
 
-      val totalOversBowled = if (statsByPlayer != null) statsByPlayer.bowling_stats.overs + oversBowled else oversBowled
+      val totalOversBowled = if (statsByPlayer != null) statsByPlayer.bowlingStats.overs + oversBowled else oversBowled
 
-      val totalRunsGiven = if (statsByPlayer != null) statsByPlayer.bowling_stats.runs + runsGiven else runsGiven
+      val totalRunsGiven = if (statsByPlayer != null) statsByPlayer.bowlingStats.runs + runsGiven else runsGiven
 
-      val totalWicketsTaken = if (statsByPlayer != null) statsByPlayer.bowling_stats.wickets + wickets_Taken else wickets_Taken
+      val totalWicketsTaken = if (statsByPlayer != null) statsByPlayer.bowlingStats.wickets + wicketsTaken else wicketsTaken
 
 
       val bowlingAverage = if(totalWicketsTaken!=0) totalRunsGiven / totalWicketsTaken else 0
@@ -214,52 +207,52 @@ object ScoreCardUploader {
       val totalSrBowl = if(totalWicketsTaken!=0) (totalRunsGiven / totalWicketsTaken) * 100 else 0
       val totalSrBowling = BigDecimal(totalSrBowl).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
 
-      val isThreeWickets = if (wickets_Taken == 3) {
+      val isThreeWickets = if (wicketsTaken == 3) {
         bowlCredits = bowlCredits + 1
         true
       } else false
 
       val totalThreeWickets = if (statsByPlayer != null) {
         if
-        (isThreeWickets) statsByPlayer.bowling_stats.three_wickets + 1
+        (isThreeWickets) statsByPlayer.bowlingStats.threeWicketHaul + 1
         else
-          statsByPlayer.bowling_stats.three_wickets
+          statsByPlayer.bowlingStats.threeWicketHaul
       } else if (isThreeWickets) 1 else 0
 
-      val isFourWickets = if (wickets_Taken == 4) {
+      val isFourWickets = if (wicketsTaken == 4) {
         bowlCredits = bowlCredits + 2
         true
       } else false
 
       val totalFourWickets = if (statsByPlayer != null) {
         if
-        (isFourWickets) statsByPlayer.bowling_stats.four_wickets + 1
+        (isFourWickets) statsByPlayer.bowlingStats.fourWicketHaul + 1
         else
-          statsByPlayer.bowling_stats.four_wickets
+          statsByPlayer.bowlingStats.fourWicketHaul
       } else if (isFourWickets) 1 else 0
 
-      val isFiveWickets = if (wickets_Taken >= 5) {
+      val isFiveWickets = if (wicketsTaken >= 5) {
         bowlCredits = bowlCredits + 3
         true
       } else false
 
       val totalFiveWickets = if (statsByPlayer != null) {
-        if (isFiveWickets) statsByPlayer.bowling_stats.five_wickets + 1
+        if (isFiveWickets) statsByPlayer.bowlingStats.fiveWicketHaul + 1
         else
-          statsByPlayer.bowling_stats.five_wickets
+          statsByPlayer.bowlingStats.fiveWicketHaul
       } else if (isFiveWickets) 1 else 0
 
-      val totalWides = if (statsByPlayer != null) statsByPlayer.bowling_stats.wides + wide_Balls else wide_Balls
+      val totalWides = if (statsByPlayer != null) statsByPlayer.bowlingStats.wides + wideBalls else wideBalls
 
-      val totalNoBalls = if (statsByPlayer != null) statsByPlayer.bowling_stats.no_balls + No_Balls else No_Balls
+      val totalNoBalls = if (statsByPlayer != null) statsByPlayer.bowlingStats.noBalls + noBalls else noBalls
 
       //fielding Stats
 
-      val totalCatchesTaken = if (statsByPlayer != null) statsByPlayer.fielding_stats.catches_taken + catches_taken else catches_taken
+      val totalCatchesTaken = if (statsByPlayer != null) statsByPlayer.fieldingStats.catchesTaken + catchesTaken else catchesTaken
 
-      val totalCatchesDroped = if (statsByPlayer != null) statsByPlayer.fielding_stats.catches_dropped + catches_dropped else catches_dropped
+      val totalCatchesDropped = if (statsByPlayer != null) statsByPlayer.fieldingStats.catchesDropped + catchesDropped else catchesDropped
 
-      val totalRunOuts = if (statsByPlayer != null) statsByPlayer.fielding_stats.run_outs + run_outs else run_outs
+      val totalRunOuts = if (statsByPlayer != null) statsByPlayer.fieldingStats.runOuts + runOuts else runOuts
 
       //Credits
 
@@ -271,93 +264,95 @@ object ScoreCardUploader {
       } else if (winner.equalsIgnoreCase(homeTeam)) 1 else 0
 
 
-      val totalBatCredits = if (statsByPlayer != null) statsByPlayer.batting_stats.credits + batCredits else batCredits
+      val totalBatCredits = if (statsByPlayer != null) statsByPlayer.battingStats.credits + batCredits else batCredits
 
-      val totalBowlCredits = if (statsByPlayer != null) statsByPlayer.bowling_stats.credits + bowlCredits else bowlCredits
+      val totalBowlCredits = if (statsByPlayer != null) statsByPlayer.bowlingStats.credits + bowlCredits else bowlCredits
 
-      val totalFieldCredits = if (statsByPlayer != null) statsByPlayer.fielding_stats.credits + fieldCredits else fieldCredits
+      val totalFieldCredits = if (statsByPlayer != null) statsByPlayer.fieldingStats.credits + fieldCredits else fieldCredits
 
 
       val batStats = DBObject(
 
-        "matches_played" -> totalMatches,
-        "innings_played" -> totalInningsBat,
-        "not_outs" -> totalNotOuts,
+        "matchesPlayed" -> totalMatches,
+        "inningsPlayed" -> totalInningsBat,
+        "notOuts" -> totalNotOuts,
         "runs" -> totalScore,
         "balls" -> totalBalls,
         "average" -> battingAverage,
-        "strike_rate" -> totalSrBatting,
-        "highest_score" -> highestScore,
+        "strikeRate" -> totalSrBatting,
+        "highestScore" -> highestScore,
         "hundreds" -> totalHundreds,
         "fifties" -> totalFifties,
         "thirties" -> totalThirties,
-        "duck_outs" -> totalDucks,
+        "duckOuts" -> totalDucks,
         "fours" -> totalFours,
         "sixes" -> totalSixes,
         "credits" -> batCredits
       )
       val bowlStats = DBObject(
 
-        "matches_played" -> totalMatches,
-        "innings_played" -> totalInningsBowled,
+        "matchesPlayed" -> totalMatches,
+        "inningsPlayed" -> totalInningsBowled,
         "overs" -> totalOversBowled,
         "runs" -> totalRunsGiven,
         "wickets" -> totalWicketsTaken,
         "average" -> bowlingAverage,
         "economy" -> totalEconomyRate,
-        "strike_rate" -> totalSrBowling,
-        "three_wickets" -> totalThreeWickets,
-        "four_wickets" -> totalFourWickets,
-        "five_wickets" -> totalFiveWickets,
+        "strikeRate" -> totalSrBowling,
+        "threeWicketHaul" -> totalThreeWickets,
+        "fourWicketHaul" -> totalFourWickets,
+        "fiveWicketHaul" -> totalFiveWickets,
         "wides" -> totalWides,
-        "no_balls" -> totalNoBalls,
+        "noBalls" -> totalNoBalls,
         "credits" -> totalBowlCredits
       )
 
 
       val fieldStats = DBObject(
-        "catches_taken" -> totalCatchesTaken,
-        "catches_dropped" -> totalCatchesDroped,
-        "run_outs" -> totalRunOuts,
+        "catchesTaken" -> totalCatchesTaken,
+        "catchesDropped" -> totalCatchesDropped,
+        "runOuts" -> totalRunOuts,
         "credits" -> fieldCredits
       )
 
+      val totalCredits = batCredits + bowlCredits + fieldCredits
+
       val stats = DBObject(
         "playerId" -> playerId,
-        "batting_stats" -> batStats,
-        "bowling_stats" -> bowlStats,
-        "fielding_stats" -> fieldStats,
-        "wins" -> totalWins
+        "battingStats" -> batStats,
+        "bowlingStats" -> bowlStats,
+        "fieldingStats" -> fieldStats,
+        "wins" -> totalWins,
+        "totalCredits" -> totalCredits
       )
 
-      //update instead of save
+      //update instead of save if current gameId already exists
       MongoConnector.stats.save(stats)
 
       val batting = DBObject(
-          "runs_scored" -> runsScored,
-          "balls_played" -> ballsPlayed,
-          "dismissal_type" -> dismissalType,
+          "runsScored" -> runsScored,
+          "ballsPlayed" -> ballsPlayed,
+          "dismissalType" -> dismissalType,
           "SR" ->SR,
           "sixes" ->sixes,
           "fours" ->fours,
-         "IsNotOut"-> isNotOut,
-          "IsDuck"->IsDuck
+          "isNotOut"-> isNotOut,
+          "isDuck"->isDuck
       )
 
       val bowling=DBObject(
-        "overs_bowled" ->oversBowled,
-        "wickets_Taken" -> wickets_Taken,
-        "runs_given" ->runsGiven,
-        "Economy_Rate" ->economyRate,
-        "No_Balls"->No_Balls,
-        "wide_Balls"->wide_Balls,
-        "wickets_Taken"->wickets_Taken,
-        "Maiden_overs"->Maiden_overs
+        "oversBowled" ->oversBowled,
+        "wicketsTaken" -> wicketsTaken,
+        "runsGiven" ->runsGiven,
+        "economyRate" ->economyRate,
+        "noBalls"->noBalls,
+        "wideBalls"->wideBalls,
+        "maidenOvers"->maidenOvers
       )
       val fielding=DBObject(
-        "catches_taken" -> catches_taken,
-        "catches_dropped" -> catches_dropped,
-        "run_outs" -> run_outs
+        "catchesTaken" -> catchesTaken,
+        "catchesDropped" -> catchesDropped,
+        "runOuts" -> runOuts
       )
 
         if (player.isDefined) {
@@ -377,9 +372,10 @@ object ScoreCardUploader {
         "gameId" -> s"${homeTeam}_${oppTeam}_${season}_${matchType}",
         "result" -> resultObject,
         "scoreCard" -> scoresMap,
-        "UpdatedAt" -> DateTime.now.toDate
+        "updatedAt" -> DateTime.now.toDate
       )
 
+      //update instead of save if current gameId already exists
       MongoConnector.scores.save(scoreObject)
       println(s"Successfully uploaded Score for $homeTeam vs $oppTeam")
     }catch{
